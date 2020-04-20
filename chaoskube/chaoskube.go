@@ -15,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -228,7 +227,6 @@ func (c *Chaoskube) Candidates(ctx context.Context) ([]v1.Pod, error) {
 	pods = filterTerminatingPods(pods)
 	pods = filterByMinimumAge(pods, c.MinimumAge, c.Now())
 	pods = filterByPodName(pods, c.IncludedPodNames, c.ExcludedPodNames)
-	pods = filterByOwnerReference(pods)
 
 	return pods, nil
 }
@@ -437,28 +435,6 @@ func filterByPodName(pods []v1.Pod, includedPodNames, excludedPodNames *regexp.R
 
 		if include && !exclude {
 			filteredList = append(filteredList, pod)
-		}
-	}
-
-	return filteredList
-}
-
-func filterByOwnerReference(pods []v1.Pod) []v1.Pod {
-	owners := make(map[types.UID]struct{})
-	filteredList := []v1.Pod{}
-	for _, pod := range pods {
-		// Don't filter out pods with no owner reference
-		if len(pod.GetOwnerReferences()) == 0 {
-			filteredList = append(filteredList, pod)
-			continue
-		}
-
-		for _, ref := range pod.GetOwnerReferences() {
-			_, found := owners[ref.UID]
-			if !found {
-				filteredList = append(filteredList, pod)
-				owners[ref.UID] = struct{}{}
-			}
 		}
 	}
 

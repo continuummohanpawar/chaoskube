@@ -192,6 +192,28 @@ func RandomPodSubSlice(pods []v1.Pod, count int) []v1.Pod {
 	}
 
 	rand.Shuffle(len(pods), func(i, j int) { pods[i], pods[j] = pods[j], pods[i] })
-	res := pods[0:count]
-	return res
+
+	owners := make(map[types.UID]struct{})
+	filteredList := []v1.Pod{}
+	for _, pod := range pods {
+		if len(filteredList) == count {
+			break
+		}
+
+		// Don't filter out pods with no owner reference
+		if len(pod.GetOwnerReferences()) == 0 {
+			filteredList = append(filteredList, pod)
+			continue
+		}
+
+		for _, ref := range pod.GetOwnerReferences() {
+			_, found := owners[ref.UID]
+			if !found {
+				filteredList = append(filteredList, pod)
+				owners[ref.UID] = struct{}{}
+			}
+		}
+	}
+
+	return filteredList
 }
